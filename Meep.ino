@@ -41,7 +41,7 @@
 //#define ....
 
 /// Constants
-#define TOO_CLOSE 10
+#define TOO_CLOSE 15
 #define MAX_DISTANCE (TOO_CLOSE * 20)
 
 #ifdef ENABLE_ADAFRUIT_MOTOR_DRIVER
