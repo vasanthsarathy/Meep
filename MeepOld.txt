@@ -1,0 +1,20 @@
+// Key Libraries to include
+#include <Wire.h>
+#include <Adafruit_MotorShield.h>
+#include "adafruit_motor_driver.h"
+#define MOTOR_INIT 4
+
+Meep::Motor floopie(MOTOR_INIT);
+
+void setup()
+{
+	floopie.initialize();
+	floopie.setSpeed(255);
+
+}
+
+void loop()
+{
+	
+}
+
