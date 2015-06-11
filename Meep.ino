@@ -41,8 +41,9 @@
 //#define ....
 
 /// Constants
-#define TOO_CLOSE 15
+#define TOO_CLOSE 25
 #define MAX_DISTANCE (TOO_CLOSE * 20)
+#define RUN_TIME 30
 
 #ifdef ENABLE_ADAFRUIT_MOTOR_DRIVER
 #include <Wire.h>
@@ -88,6 +89,7 @@ namespace Meep
 		{
 		}
 
+ //---------------------------------------------------------------------------------------
 		/*
 		 * @brief Initialize Robot state
 		 */
@@ -96,40 +98,157 @@ namespace Meep
 		 	// Initialize Motor Shield
 		 	lbWheel.initializeDriver();
 
-		 	// Start running the motors  
-	 		lbWheel.setSpeed(255);
-          	rbWheel.setSpeed(255);
-         	lfWheel.setSpeed(255);
-         	rfWheel.setSpeed(255);
+		 	//Calculating time
+		 	endTime = millis() + RUN_TIME * 1000;
+		 	move();
 
-		 	// Initialize the robot state .
-		 	state = stateRunning;
 		 }
 
+ //---------------------------------------------------------------------------------------
 		 /*
 		  * @brief update the state of the robot based on inputs from RasPi, sensors etc.
 		  * Must be called repeatedly while the robot is in operation
 		  */
 		 void run()
 		 {	 	
-		 	if (state == stateRunning) {
-		 		
-		 		// Calculate distance using moving average 
-		 		int distance = distanceAverage.add(distanceSensor.getDistance());
 
-		 		//Log distance for debugging purposes
-		 		log("distance: %u\n", distance);
-		 		
-		 		if (distance <= TOO_CLOSE) {
-		 			state = stateStopped;
-		 			lbWheel.setSpeed(0);
-		          	rbWheel.setSpeed(0);
-		         	lfWheel.setSpeed(0);
-		         	rfWheel.setSpeed(0);
-		 		}
+
+		 	if (stopped())
+		 		return;
+
+		 	// More efficient to get these variables at the start of run()
+		 	// and then later call it in the functions.
+		 	unsigned long currentTime = millis();
+		 	int distance = distanceAverage.add(distanceSensor.getDistance());
+		 	log("state: %d, currentTime: %ul, distance: %u\n", state, currentTime, distance);
+
+
+		 	if (doneRunning(currentTime))
+		 		stop();
+		 	else if (moving()) {
+		 		if (obstacleAhead(distance))
+		 			turn(currentTime);
 		 	}
-
+		 	else if (turning()) {
+		 		if (doneTurning(currentTime, distance))
+		 			move();
+		 	}
 		 }
+
+//---------------------------------------------------------------------------------------
+	protected: 
+	
+	/*
+	 * @brief stopped() checks if robot's current state is stateStopped
+	 * @return TRUE if state = stateStopped, FALSE otherwise 
+	 */	 
+	bool stopped()
+	{
+		return (state == stateStopped);
+	}
+
+	/*
+	 * @brief doneRunning() checks if robot was running for a predetermined amount of time
+	 * @param time limit (e.g., 30 seconds)
+	 * @return TRUE if time limit has expired, and FALSE otherwise
+	 */
+	bool doneRunning(unsigned long currentTime)
+	{
+		return (currentTime >= endTime);
+	}
+
+	/*
+	 * @brief stop() changes state to stateStopped
+	 * 
+	 */
+	void stop()
+	{
+		lbWheel.setSpeed(0);
+      	rbWheel.setSpeed(0);
+     	lfWheel.setSpeed(0);
+     	rfWheel.setSpeed(0);
+		state = stateStopped;
+	}
+
+
+	/*
+	 * @brief moving() checks if the robot's current state is stateMoving
+	 * @return TRUE if state = stateMoving, FALSE otherwise
+	 */
+	bool moving()
+ 	{
+ 		return (state == stateMoving);
+ 	}
+
+	/*
+	 * @brief obstacleAhead() checks if an obstacle is in front
+	 * @param distanceAverage 
+	 * @return TRUE if distanceAverage < TOO_CLOSE, FALSE otherwise
+	 */
+	bool obstacleAhead(unsigned int distance)
+	{
+		return (distance <= TOO_CLOSE);
+	}
+
+	/*
+	 * @brief turn() initiates turn and changes state to stateTurning
+	 */
+	 void turn(unsigned long currentTime)
+	 {
+	 	if (random(2) == 0) 
+	 	{
+	 		//Turn Left
+	 		lbWheel.setSpeed(-255);
+     		lfWheel.setSpeed(-255);
+
+     		rbWheel.setSpeed(255);
+     		rfWheel.setSpeed(255);
+	 	}
+	 	else
+	 	{
+	 		//Turn right
+	 		lbWheel.setSpeed(255);
+     		lfWheel.setSpeed(255);
+
+          	rbWheel.setSpeed(-255);
+     		rfWheel.setSpeed(-255);
+	 	}
+	 	state = stateTurning;
+	 	endStateTime = currentTime + random(500,1000);
+	 }
+
+	/*
+	 * @brief turning() checks if current state is stateTurning
+	 * @return TRUE if state = stateTurning, FALSE otherwise.
+	 */
+	bool turning()
+	{
+		return (state == stateTurning);
+	}
+
+	/*
+	 * @brief doneTurning() checks if turning process complete
+	 * @return TRUE if maneuver is complete and FALSE if not.
+	 */
+	bool doneTurning(unsigned long currentTime, unsigned int distance)
+	 {
+	 	if (currentTime >= endStateTime)
+	 		return (distance > TOO_CLOSE);
+	 	return false;
+	 }
+
+
+	/*
+	 * @brief move() changes the robot state to stateMoving
+	 */
+	void move()
+	{
+		lbWheel.setSpeed(255);
+      	rbWheel.setSpeed(255);
+     	lfWheel.setSpeed(255);
+     	rfWheel.setSpeed(255);
+		state = stateMoving;
+	}
 
 	private:
 
@@ -143,7 +262,7 @@ namespace Meep
         DistanceSensor distanceSensor;
 
         //Enum creates a user defined enumerated type with two possible values
-        enum state_t { stateStopped, stateRunning };
+        enum state_t { stateStopped, stateMoving, stateTurning };
         state_t state;
 
         /* 
@@ -154,6 +273,10 @@ namespace Meep
 
         //Declare MovingAverage object. Note the window size of 3
         MovingAverage<unsigned int, 3> distanceAverage;
+
+        //Variable to track time. See constant RUN_TIME at the top 
+        unsigned long endTime;
+        unsigned long endStateTime;
 
 	};
 };
