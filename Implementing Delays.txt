@@ -1,0 +1,27 @@
+Implementing Delays
+
+		 	unsigned long currentTime = millis();
+		 	unsigned long elapsedTime = currentTime - startTime;
+		 	switch (state){
+		 	case stateStopped:
+		 		if (elapsedTime >= 5000) {
+		 			lbWheel.setSpeed(255);
+		 			rbWheel.setSpeed(255);
+		 			lfWheel.setSpeed(255);
+		 			rfWheel.setSpeed(255);
+		 			state = stateRunning;
+		 			startTime = currentTime;
+		 		}
+		 		break;
+		 	case stateRunning:
+		 		if (elapsedTime >= 8000) {
+		 			lbWheel.setSpeed(0);
+		 			rbWheel.setSpeed(0);
+		 			lfWheel.setSpeed(0);
+		 			rfWheel.setSpeed(0);
+		 			state = stateStopped;
+		 			startTime = currentTime;
+		 		}
+		 		break;
+		 	}
+
