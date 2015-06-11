@@ -68,6 +68,11 @@
 //-------------------------------------------
 
 
+//-------------------------------------------
+// MOVING AVERAGE FILTER
+#include "moving_average.h"
+//-------------------------------------------
+
 namespace Meep
 {
 	class Robot
@@ -79,7 +84,7 @@ namespace Meep
 		Robot()
 			: lbWheel(LBWHEEL_INIT), rbWheel(RBWHEEL_INIT), 
 			lfWheel(LFWHEEL_INIT), rfWheel(RFWHEEL_INIT),
-			distanceSensor(DISTANCE_SENSOR_INIT)
+			distanceSensor(DISTANCE_SENSOR_INIT), distanceAverage(MAX_DISTANCE)
 		{
 		}
 
@@ -109,11 +114,13 @@ namespace Meep
 		 {	 	
 		 	if (state == stateRunning) {
 		 		
+		 		// Calculate distance using moving average 
+		 		int distance = distanceAverage.add(distanceSensor.getDistance());
+
 		 		//Log distance for debugging purposes
-		 		unsigned int distance = distanceSensor.getDistance();
 		 		log("distance: %u\n", distance);
 		 		
-		 		if (distanceSensor.getDistance() <= TOO_CLOSE) {
+		 		if (distance <= TOO_CLOSE) {
 		 			state = stateStopped;
 		 			lbWheel.setSpeed(0);
 		          	rbWheel.setSpeed(0);
@@ -144,6 +151,9 @@ namespace Meep
          * Time units returned by the function millis()
          */
         unsigned long startTime;
+
+        //Declare MovingAverage object. Note the window size of 3
+        MovingAverage<unsigned int, 3> distanceAverage;
 
 	};
 };
