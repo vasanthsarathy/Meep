@@ -250,6 +250,8 @@ namespace Meep
 		state = stateMoving;
 	}
 
+	
+//---------------------------------------------------------------------------------------
 	private:
 
 		//Set the motor variables of class Motor
